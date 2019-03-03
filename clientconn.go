@@ -1141,7 +1141,13 @@ func (ac *addrConn) createTransport(addr resolver.Address, copts transport.Conne
 		copts.ChannelzParentID = ac.channelzID
 	}
 
+	now := time.Now()
 	newTr, err := transport.NewClientTransport(connectCtx, ac.cc.ctx, target, copts, onPrefaceReceipt, onGoAway, onClose)
+	elapsed := time.Since(now)
+	if elapsed > 500*time.Millisecond {
+		grpclog.Warningf("createTransport: NewClientTransport time %v, target %s", elapsed, ac.cc.Target())
+	}
+
 	if err != nil {
 		// newTr is either nil, or closed.
 		ac.mu.Lock()
@@ -1156,6 +1162,7 @@ func (ac *addrConn) createTransport(addr resolver.Address, copts transport.Conne
 		return nil, err
 	}
 
+	now = time.Now()
 	if ac.dopts.reqHandshake == envconfig.RequireHandshakeOn {
 		select {
 		case <-time.After(connectDeadline.Sub(time.Now())):
@@ -1170,6 +1177,10 @@ func (ac *addrConn) createTransport(addr resolver.Address, copts transport.Conne
 			return nil, errors.New("connection closed")
 			// TODO(deklerk) this should bail on ac.ctx.Done(). Add a test and fix.
 		}
+	}
+	elapsed = time.Since(now)
+	if elapsed > 500*time.Millisecond {
+		grpclog.Warningf("createTransport: wait handshake time %v, target %s", elapsed, ac.cc.Target())
 	}
 
 	// Now there is a viable transport to be use, so set ac.transport to reflect the new viable transport.

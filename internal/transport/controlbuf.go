@@ -23,9 +23,11 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/hpack"
+	"google.golang.org/grpc/grpclog"
 )
 
 var updateHeaderTblSize = func(e *hpack.Encoder, v uint32) {
@@ -34,6 +36,7 @@ var updateHeaderTblSize = func(e *hpack.Encoder, v uint32) {
 
 type itemNode struct {
 	it   interface{}
+	t    time.Time
 	next *itemNode
 }
 
@@ -43,7 +46,7 @@ type itemList struct {
 }
 
 func (il *itemList) enqueue(i interface{}) {
-	n := &itemNode{it: i}
+	n := &itemNode{it: i, t: time.Now()}
 	if il.tail == nil {
 		il.head, il.tail = n, n
 		return
@@ -63,9 +66,14 @@ func (il *itemList) dequeue() interface{} {
 		return nil
 	}
 	i := il.head.it
+	t := il.head.t
 	il.head = il.head.next
 	if il.head == nil {
 		il.tail = nil
+	}
+
+	if e := time.Since(t); e > 100*time.Millisecond {
+		grpclog.Warningf("grpcdebug: controlbuf: dequeue time: %v", e)
 	}
 	return i
 }

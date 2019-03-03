@@ -35,6 +35,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/internal/channelz"
 	"google.golang.org/grpc/internal/syscall"
 	"google.golang.org/grpc/keepalive"
@@ -534,11 +535,24 @@ func (t *http2Client) getCallAuthData(ctx context.Context, audience string, call
 // streams.
 func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Stream, err error) {
 	ctx = peer.NewContext(ctx, t.getPeer())
+
+	now1 := time.Now()
 	headerFields, err := t.createHeaderFields(ctx, callHdr)
+	elapsed1 := time.Since(now1)
+	if elapsed1 > 100*time.Millisecond {
+		grpclog.Warningf("grpcdebug: NewStream: target=%v createHeaderFields time: %v", callHdr.Host, elapsed1)
+	}
+
 	if err != nil {
 		return nil, err
 	}
+	now2 := time.Now()
 	s := t.newStream(ctx, callHdr)
+	elapsed2 := time.Since(now2)
+	if elapsed2 > 100*time.Millisecond {
+		grpclog.Warningf("grpcdebug: NewStream: target=%v newStream time: %v", callHdr.Host, elapsed2)
+	}
+
 	cleanup := func(err error) {
 		if s.swapState(streamDone) == streamDone {
 			// If it was already done, return.
@@ -636,6 +650,8 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 		}
 		return true
 	}
+
+	now3 := time.Now()
 	for {
 		success, err := t.controlBuf.executeAndPut(func(it interface{}) bool {
 			if !checkForStreamQuota(it) {
@@ -666,6 +682,12 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 			return nil, ErrConnClosing
 		}
 	}
+
+	elapsed3 := time.Since(now3)
+	if elapsed3 > 100*time.Millisecond {
+		grpclog.Warningf("grpcdebug: NewStream: target=%v header time: %v", callHdr.Host, elapsed3)
+	}
+
 	if t.statsHandler != nil {
 		outHeader := &stats.OutHeader{
 			Client:      true,

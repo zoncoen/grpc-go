@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/internal/transport"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -636,7 +637,12 @@ type payloadInfo struct {
 }
 
 func recvAndDecompress(p *parser, s *transport.Stream, dc Decompressor, maxReceiveMessageSize int, payInfo *payloadInfo, compressor encoding.Compressor) ([]byte, error) {
+	now := time.Now()
 	pf, d, err := p.recvMsg(maxReceiveMessageSize)
+	elapsed := time.Since(now)
+	if elapsed > 300*time.Millisecond {
+		grpclog.Warningf("grpcdebug: %s recvAndDecompress time: %v", s.Method(), elapsed)
+	}
 	if err != nil {
 		return nil, err
 	}
