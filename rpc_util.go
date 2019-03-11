@@ -637,6 +637,14 @@ type payloadInfo struct {
 }
 
 func recvAndDecompress(p *parser, s *transport.Stream, dc Decompressor, maxReceiveMessageSize int, payInfo *payloadInfo, compressor encoding.Compressor) ([]byte, error) {
+	now3 := time.Now()
+	defer func() {
+		elapsed := time.Since(now3)
+		if elapsed > 300*time.Millisecond {
+			grpclog.Warningf("grpcdebug: recvAndDecompress: time: %v", elapsed)
+		}
+	}()
+
 	now := time.Now()
 	pf, d, err := p.recvMsg(maxReceiveMessageSize)
 	elapsed := time.Since(now)
@@ -650,8 +658,17 @@ func recvAndDecompress(p *parser, s *transport.Stream, dc Decompressor, maxRecei
 		payInfo.wireLength = len(d)
 	}
 
+	now2 := time.Now()
 	if st := checkRecvPayload(pf, s.RecvCompress(), compressor != nil || dc != nil); st != nil {
+		elapsed := time.Since(now2)
+		if elapsed > 300*time.Millisecond {
+			grpclog.Warningf("grpcdebug: %s recvAndDecompress2 time: %v", s.Method(), elapsed)
+		}
 		return nil, st.Err()
+	}
+	elapsed = time.Since(now2)
+	if elapsed > 300*time.Millisecond {
+		grpclog.Warningf("grpcdebug: %s recvAndDecompress2 time: %v", s.Method(), elapsed)
 	}
 
 	if pf == compressionMade {

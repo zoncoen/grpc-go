@@ -924,6 +924,14 @@ func (a *csAttempt) sendMsg(m interface{}, hdr, payld, data []byte) error {
 }
 
 func (a *csAttempt) recvMsg(m interface{}, payInfo *payloadInfo) (err error) {
+	now := time.Now()
+	defer func() {
+		elapsed := time.Since(now)
+		if elapsed > 300*time.Millisecond {
+			grpclog.Warningf("grpcdebug: csAttempt: target=%v recvMsg time: %v", a.cs.cc.Target(), elapsed)
+		}
+	}()
+
 	cs := a.cs
 	if a.statsHandler != nil && payInfo == nil {
 		payInfo = &payloadInfo{}
