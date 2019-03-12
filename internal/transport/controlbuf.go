@@ -494,7 +494,6 @@ func (l *loopyWriter) outgoingWindowUpdateHandler(w *outgoingWindowUpdate) error
 func (l *loopyWriter) incomingWindowUpdateHandler(w *incomingWindowUpdate) error {
 	// Otherwise update the quota.
 	if w.streamID == 0 {
-		grpclog.Warningf("grpcdebug: quota: quota %d: inc %d: update connection quota", l.sendQuota, w.increment)
 		l.sendQuota += w.increment
 		return nil
 	}
@@ -816,7 +815,7 @@ func (l *loopyWriter) processData() (bool, error) {
 	}
 
 	if l.sendQuota < uint32(size) { // connection-level flow control.
-		grpclog.Warning("grpcdebug: all connection quote consumed")
+		grpclog.Warning("grpcdebug: quota: all connection quote consumed")
 		size = int(l.sendQuota)
 	}
 	// Now that outgoing flow controls are checked we can replenish str's write quota
