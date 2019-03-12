@@ -494,13 +494,16 @@ func (l *loopyWriter) outgoingWindowUpdateHandler(w *outgoingWindowUpdate) error
 func (l *loopyWriter) incomingWindowUpdateHandler(w *incomingWindowUpdate) error {
 	// Otherwise update the quota.
 	if w.streamID == 0 {
+		grpclog.Warningf("grpcdebug: quota: quota %d: inc %d: update connection quota", l.sendQuota, w.increment)
 		l.sendQuota += w.increment
 		return nil
 	}
 	// Find the stream and update it.
 	if str, ok := l.estdStreams[w.streamID]; ok {
+		grpclog.Warningf("grpcdebug: quota: id %d: sent %d: inc %d: update stream quota", str.id, str.bytesOutStanding, w.increment)
 		str.bytesOutStanding -= int(w.increment)
 		if strQuota := int(l.oiws) - str.bytesOutStanding; strQuota > 0 && str.state == waitingOnStreamQuota {
+			grpclog.Warningf("grpcdebug: quota: id %d: quota %d: activate stream", str.id, strQuota)
 			str.state = active
 			l.activeStreams.enqueue(str)
 			return nil
@@ -805,6 +808,7 @@ func (l *loopyWriter) processData() (bool, error) {
 		size = len(buf)
 	}
 	if strQuota := int(l.oiws) - str.bytesOutStanding; strQuota <= 0 { // stream-level flow control.
+		grpclog.Warningf("grpcdebug: quota: id %d: quota %d: waiting on stream quota", str.id, strQuota)
 		str.state = waitingOnStreamQuota
 		return false, nil
 	} else if strQuota < size {
@@ -812,6 +816,7 @@ func (l *loopyWriter) processData() (bool, error) {
 	}
 
 	if l.sendQuota < uint32(size) { // connection-level flow control.
+		grpclog.Warning("grpcdebug: all connection quote consumed")
 		size = int(l.sendQuota)
 	}
 	// Now that outgoing flow controls are checked we can replenish str's write quota
